@@ -1,5 +1,45 @@
-const moment = require('moment-timezone');
-moment.locale('pt-br');
+//Mongodb
+const { MongoClient } = require("mongodb");
+// Replace the uri string with your MongoDB deployment's connection string.
+const uri = "mongodb://localhost";
+
+const client = new MongoClient(uri, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+});
+
+async function run() {
+    try {
+        await client.connect();
+        const database = client.db('ommed');
+
+
+        let listCollections = await  database.listCollections()
+            .toArray(); 
+        //await listDatabases(client);
+        //console.log("Response 1: ", listCollections);
+        const professionals = database.collection('professionals');
+        const professionalName = 'Hello';
+        const _id = '60801e083e4550133a3a55b1' ;
+        const query = { _id: '60801e083e4550133a3a55b1' };
+        const professional = await professionals.find({ professionalName});
+        console.log("Response: ",professional);
+        } finally {
+        // Ensures that the client will close when you finish/error
+        await client.close();
+        }
+}
+
+async function listDatabases(client){
+    await client.connect();
+
+    databasesList = await client.db().admin().listDatabases();
+ 
+    console.log("Databases:");
+    databasesList.databases.forEach(db => console.log(` - ${db.name}`));
+};
+
+run().catch(console.dir);
 
 //gRPC
 const PROTO_PATH = "./professional.proto";
@@ -14,9 +54,6 @@ let packageDefinition = protoLoader.loadSync(PROTO_PATH, {
 let professionalProto = grpc.loadPackageDefinition(packageDefinition);
 const server = new grpc.Server();
 
-
-//Models
-const Professional = require('./models/Professional')
 
 
 //Methods

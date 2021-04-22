@@ -1,6 +1,6 @@
-const mongoose = require('../database');
+const mongoClient = require('../db');
 
-const ProfessionalSchema = new mongoose.Schema({
+const ProfessionalSchema = new mongoClient.Schema({
     // _id  is implicit (type string like this: 607c8eb3ee5d40611e593954)
     professionalName: {
         type: String,
@@ -16,7 +16,7 @@ const ProfessionalSchema = new mongoose.Schema({
     }
 });
 
-const Professional = mongoose.model('Professional', ProfessionalSchema);
+const Professional = mongoClient.model('Professional', ProfessionalSchema);
 
 module.exports = Professional;
 
