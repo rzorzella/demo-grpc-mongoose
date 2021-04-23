@@ -1,45 +1,7 @@
-//Mongodb
-const { MongoClient } = require("mongodb");
-// Replace the uri string with your MongoDB deployment's connection string.
-const uri = "mongodb://localhost";
-
-const client = new MongoClient(uri, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-});
-
-async function run() {
-    try {
-        await client.connect();
-        const database = client.db('ommed');
-
-
-        let listCollections = await  database.listCollections()
-            .toArray(); 
-        //await listDatabases(client);
-        //console.log("Response 1: ", listCollections);
-        const professionals = database.collection('professionals');
-        const professionalName = 'Hello';
-        const _id = '60801e083e4550133a3a55b1' ;
-        const query = { _id: '60801e083e4550133a3a55b1' };
-        const professional = await professionals.find({ professionalName});
-        console.log("Response: ",professional);
-        } finally {
-        // Ensures that the client will close when you finish/error
-        await client.close();
-        }
-}
-
-async function listDatabases(client){
-    await client.connect();
-
-    databasesList = await client.db().admin().listDatabases();
- 
-    console.log("Databases:");
-    databasesList.databases.forEach(db => console.log(` - ${db.name}`));
-};
-
-run().catch(console.dir);
+const moment = require('moment-timezone');
+const bcrypt = require('bcrypt');
+const saltRounds = 10;
+moment.locale('pt-br');
 
 //gRPC
 const PROTO_PATH = "./professional.proto";
@@ -55,6 +17,10 @@ let professionalProto = grpc.loadPackageDefinition(packageDefinition);
 const server = new grpc.Server();
 
 
+//Models
+const Professional = require('./models/Professional');
+const { verify } = require('../../../grpc/teste-express/src/modules/mailer');
+
 
 //Methods
 server.addService(professionalProto.ProfessionalService.service, {
@@ -64,7 +30,6 @@ server.addService(professionalProto.ProfessionalService.service, {
             let { 
                 professionalName = null, 
                 professionalEmail = null, 
-                professionalAge = null,
             } = call.request;
     
     
@@ -76,10 +41,6 @@ server.addService(professionalProto.ProfessionalService.service, {
 
             if(professionalEmail !== null){
                 where.professionalEmail = professionalEmail;
-            }
-
-            if(professionalAge !== null){
-                where.professionalAge = professionalAge;
             }
 
             const professionals = await Professional.find(where);
@@ -137,7 +98,7 @@ server.addService(professionalProto.ProfessionalService.service, {
                 _id = null,
                 professionalName = null, 
                 professionalEmail = null, 
-                professionalAge = null,
+                professionalPassword = null,
             } = call.request;
 
         
@@ -157,18 +118,32 @@ server.addService(professionalProto.ProfessionalService.service, {
                   })
             }
     
-            if(!professionalAge || professionalEmail < 1){
+            if(!professionalPassword || professionalPassword == ''){
                 return callback({
                     code: 400,
-                    message: 'Professional Age is invalid.',
+                    message: 'Professional Password is invalid.',
                     status: grpc.status.INTERNAL
                   })
             }
     
+            const professionalFindEmail = await Professional.find({professionalEmail});
+
+            if(professionalFindEmail.length>0){
+                return callback({
+                    code: 400,
+                    message: 'Professional Email already exits.',
+                    status: grpc.status.INTERNAL
+                })
+            }
+
+            const professionalenCryptedPassword = bcrypt.hashSync(professionalPassword, saltRounds);
+            const passwordTest = bcrypt.compareSync(professionalPassword, professionalenCryptedPassword); // false
+            console.log(professionalenCryptedPassword, passwordTest)
+
             const professionalCreate = await Professional.create({ 
                 professionalName:  professionalName,
                 professionalEmail:  professionalEmail,
-                professionalAge:  professionalAge,
+                professionalPassword:  professionalenCryptedPassword,
             });
     
             return callback(null, professionalCreate);
@@ -187,8 +162,7 @@ server.addService(professionalProto.ProfessionalService.service, {
             let { 
                 _id = null,
                 professionalName = null, 
-                professionalEmail = null, 
-                professionalAge = null,
+                professionalPassword = null,
             } = call.request;
 
             if(!_id || _id == ''){
@@ -212,36 +186,29 @@ server.addService(professionalProto.ProfessionalService.service, {
             if(!professionalName || professionalName == ''){
                 return callback({
                     code: 400,
-                    message: 'Professional Id is mandatory.',
+                    message: 'Professional Name is mandatory!',
                     status: grpc.status.INTERNAL
                 })
             }
 
+            if(!professionalPassword || professionalPassword == ''){
+                return callback({
+                    code: 400,
+                    message: 'Password is mandatory.',
+                    status: grpc.status.INTERNAL
+                })
+            }
+    
+            const professionalenCryptedPassword = bcrypt.hashSync(professionalPassword, saltRounds);
+            const passwordTest = bcrypt.compareSync(professionalPassword, professionalenCryptedPassword); // false
+            console.log(professionalenCryptedPassword, passwordTest)
 
-            if(!professionalEmail || professionalEmail == ''){
-                return callback({
-                    code: 400,
-                    message: 'Professional Email is mandatory.',
-                    status: grpc.status.INTERNAL
-                })
-            }
-    
-            if(!professionalAge || professionalEmail < 1){
-                return callback({
-                    code: 400,
-                    message: 'Professional Age is invalid.',
-                    status: grpc.status.INTERNAL
-                })
-            }
-    
             const professionalUpdate = await Professional.findByIdAndUpdate( _id, {
                 professionalName, 
-                professionalEmail, 
-                professionalAge, 
+                professionalPassword: professionalenCryptedPassword, 
                 },
                 {new: true}
             );
-    
     
             return callback(null, professionalUpdate);
 
@@ -249,6 +216,54 @@ server.addService(professionalProto.ProfessionalService.service, {
             return callback({
                 code: 400,
                 message: `Cannot Update Professional: [${err}]`,
+                status: grpc.status.INTERNAL
+              })
+        }
+    },
+    verifyPass: async (call, callback) => {
+        try {
+
+            let { 
+                professionalEmail = null, 
+                professionalPassword = null,
+            } = call.request;
+
+
+            if(!professionalEmail || professionalEmail == ''){
+                return callback({
+                    code: 400,
+                    message: 'Profesional Eamil is mandatory.',
+                    status: grpc.status.INTERNAL
+                })
+            }
+    
+            if(!professionalPassword || professionalPassword == ''){
+                return callback({
+                    code: 400,
+                    message: 'Password is mandatory.',
+                    status: grpc.status.INTERNAL
+                })
+            }
+
+
+            const professionalFindEmail = await Professional.findOne({professionalEmail});
+
+            if(!professionalFindEmail){
+                return callback({
+                    code: 400,
+                    message: 'Professional Email not found.',
+                    status: grpc.status.INTERNAL
+                })
+            }
+
+            const verifyPass = await {verifyPass: bcrypt.compareSync(professionalPassword, professionalFindEmail.professionalPassword)}; 
+
+            return callback(null, verifyPass);
+
+        } catch (err) {
+            return callback({
+                code: 400,
+                message: `Cannot verify Professional Password: [${err}]`,
                 status: grpc.status.INTERNAL
               })
         }

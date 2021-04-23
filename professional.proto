@@ -1,11 +1,12 @@
 syntax = "proto3";   //Proto Version - "3" is the last one
 
 service ProfessionalService {
-    rpc List   (ProfessionalParams)    returns (ProfessionalList) {}
-    rpc Get    (ProfessionalRequestId) returns (ProfessionalGet) {}
-    rpc create (Professional)          returns (Professional) {}
-    rpc Update (Professional)          returns (Professional) {}
-    rpc Delete (ProfessionalRequestId) returns (Empty) {}
+    rpc List   (ProfessionalParams)     returns (ProfessionalList) {}
+    rpc Get    (ProfessionalRequestId)  returns (ProfessionalGet) {}
+    rpc create (Professional)           returns (Professional) {}
+    rpc Update (Professional)           returns (Professional) {}
+    rpc Delete (ProfessionalRequestId)  returns (Empty) {}
+    rpc VerifyPass (ProfessionalParams) returns (verifyResponse) {}
 }
 
 message Empty {}
@@ -13,14 +14,14 @@ message Empty {}
 message ProfessionalParams {
     string professionalName = 2;
     string professionalEmail = 3;
-    int32 professionalAge = 4;
+    string professionalPassword = 4;
 }
 
 message Professional {
     string _id = 1;
     string professionalName = 2;
     string professionalEmail = 3;
-    int32 professionalAge = 4;
+    string professionalPassword = 4;
 }
 
 message ProfessionalList {
@@ -35,3 +36,7 @@ message ProfessionalRequestId {
     string _id = 1;
 }
 
+
+message verifyResponse {
+    bool verifyPass = 1;
+}
